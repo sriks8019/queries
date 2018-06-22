@@ -1,5 +1,4 @@
 # queries
-SQL/HIVE queries
 First Set Queries consist of answers to 3 queries related to 
 a) pickup customers, 
 b) cumulative revenues for specific channels, 
