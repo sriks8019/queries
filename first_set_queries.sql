@@ -14,35 +14,19 @@ a.     Some filters to help you:
 
 WITH pickup_cust_under_35
 
-AS( SELECT distinct customer_id
+AS( SELECT  customer_id
 
-FROM table(transactions)
+FROM transactions
 
-WHERE visit
+WHERE 
 
-                                      visit_date between ’01-01-2018’ AND ’31-12-2018’           -- ( or FY18 dates)
-
-                                      AND channel = 'DOTCOM'
-
-                                       AND service_id in (8, 11)
-
-                                       AND amount < =35
-
-EXCEPT
-
-SELECT distinct customer_id
-
-FROM table(transactions)
-
-WHERE visit
-
-                                      visit_date between ’01-01-2018’ AND ’31-12-2018’           -- ( or FY18 dates)
+                                      visit_date between '01-01-2018' AND '31-12-2018'         -- ( or FY18 dates)
 
                                       AND channel = 'DOTCOM'
 
                                        AND service_id in (8, 11)
-
-                                       AND amount >35
+GROUP BY customer_id
+HAVING      MAX( amount) < =35
 
 ),
 
@@ -109,7 +93,7 @@ AS
 
  
 
-SELECT COUNT(qc1.customers) as count_repeat_customers, COUNT(qc1.customers)/ CAST(COUNT(qc2.customers) AS FLOAT) as repeat_percent
+SELECT COUNT(qc1.customer_id) as count_repeat_customers, COUNT(qc1.customer_id)/ CAST(COUNT(qc2.customer_id) AS FLOAT) as repeat_percent
 
 FROM quarterly_customers qc1 RIGHT OUTER JOIN quarterly_customers qc2
 
@@ -117,4 +101,4 @@ ON qc1.customer_id= qc2.customer_id
 
 AND qc1.quarter=qc2.quarter+1
 
-WHERE qc2.quarter= x     or (GROUP BY qc1.quarter) -- group by to get all quarters repeat customers
+WHERE qc2.quarter= x     --or (GROUP BY qc1.quarter) -- group by to get all quarters repeat customers
