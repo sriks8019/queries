@@ -82,7 +82,7 @@ AS
 ( SELECT distinct ugc_id, DATEDIFF(quarter, '01-02-2017', visit_date)+1 as quarter     -- starting with Fiscal year 2018
    FROM aanand2.omnichannel_sol_v1_random_ugc_1_percent
  WHERE channel='DOTCOM'
- --AND DATEDIFF(quarter, '01-02-2017', visit_date)<5-- if interestested in strictly one year
+ AND DATEDIFF(quarter, '01-02-2017', visit_date)<5-- if interestested in strictly one year
 )
 
 SELECT qc2.quarter, COUNT(qc1.ugc_id) as count_repeat_customers, COUNT(qc1.ugc_id)/ CAST(COUNT(qc2.ugc_id) AS FLOAT) as repeat_percent
