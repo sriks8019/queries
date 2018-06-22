@@ -69,10 +69,6 @@ WHERE transaction_date BETWEEN  ’01-01-2018’ AND ’31-12-2018’
 
 AND channel IN (“DOTCOM”, “OG”)
 
---highlighted part is optional if both of the channels can be combined
-
-       
-
  
 
  

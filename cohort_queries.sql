@@ -9,6 +9,7 @@ Questions:
 Assumptions:
 1. Transactions are sucessful orders/purchases
 2. visit_date is a datetimestamp
+3. No channel specific filtering has been done. filters like 'WHERE channel="DOTCOM"' can be added if needed.
 */
 --1.
 SELECT distinct customer_id
