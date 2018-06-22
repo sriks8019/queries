@@ -101,4 +101,4 @@ ON qc1.customer_id= qc2.customer_id
 
 AND qc1.quarter=qc2.quarter+1
 
-WHERE qc2.quarter= x     --or (GROUP BY qc1.quarter) -- group by to get all quarters repeat customers
+WHERE qc2.quarter= x     --or (GROUP BY qc2.quarter) -- group by to get all quarters repeat customers

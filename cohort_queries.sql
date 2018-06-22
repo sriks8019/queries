@@ -36,9 +36,8 @@ SELECT visit_month as [month],
 FROM
 (SELECT visit_month, COUNT(customer_id)   as second_purchase_count,  COUNT(customer_id)  / (SELECT CAST(COUNT(mb.customer_id) AS FLOAT)) FROM march_cohort mb)  * 100 as month_wise_second_purchase_percentage
 FROM
-(SELECT customer_id, MONTH(visit_date) as visit_month, ROW_NUMBER() OVER ( PARTITION BY customer_id ORDER BY visit_date ) as transaction_number
-FROM transactions
-WHERE customer_id IN ( SELECT customer_id
-                                              FROM march_cohort))
+(SELECT t.customer_id, MONTH(t.visit_date) as visit_month, ROW_NUMBER() OVER ( PARTITION BY t.customer_id ORDER BY t.visit_date ) as transaction_number
+FROM transactions t LEFT SEMI JOIN march_cohort mc
+ON t.customer_id=mc.customer_id)
              WHERE transaction_number=2
               GROUP BY visit_month);
