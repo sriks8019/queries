@@ -58,7 +58,7 @@ ON f.ugc_id=p.ugc_id
 
 /*2.     Cumulative revenue for 'DOTCOM' and 'OG' until end of each month of FY18 i.e. total revenue until end of Feb�17, until end of March�17� until end of Jan�18
 */
-SELECT  channel,
+SELECT  distinct channel, MONTH(visit_date) as Calendar_month,
         SUM(total_auth_amount)  OVER ( PARTITION BY channel ORDER BY MONTH(visit_date)) as cumulative_sum
 
 FROM aanand2.omnichannel_sol_v1_random_ugc_1_percent
@@ -66,6 +66,7 @@ FROM aanand2.omnichannel_sol_v1_random_ugc_1_percent
 WHERE fiscal_year_nbr=2018
 
 AND channel IN ('DOTCOM', 'OG')
+ 
 
  
 
