@@ -34,7 +34,7 @@ WITH customer_wise_transactions AS
 (SELECT ugc_id, MONTH(visit_date) as visit_month,  ROW_NUMBER() OVER ( PARTITION BY ugc_id ORDER BY visit_date ) as transaction_number
 FROM aanand2.omnichannel_sol_v1_random_ugc_1_percent
 WHERE fiscal_year_nbr=2018--YEAR(visit_date)=2018  -- year of interest or date range
-)
+),
 march_cohort AS
 ( SELECT ugc_id 
 FROM customer_wise_transactions
