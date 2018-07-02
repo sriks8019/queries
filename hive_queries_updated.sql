@@ -3,17 +3,17 @@
 WITH
 preferred_store AS
 (
-SELECT vt_individual_customer_id, store_nbr
-FROM
-(SELECT vt_individual_customer_id, store_nbr, ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY num_visits DESC ) as preference
-FROM
-	(SELECT  vt_individual_customer_id, store_nbr, COUNT(distinct CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) as num_visits
-	FROM cust_snapshot_july18
-	WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
-	GROUP BY vt_individual_customer_id, store_nbr
-	) A
-) B
-WHERE preference=1
+	SELECT vt_individual_customer_id, store_nbr
+	FROM
+		(SELECT vt_individual_customer_id, store_nbr, ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY num_visits DESC ) as preference
+		FROM
+			(SELECT  vt_individual_customer_id, store_nbr, COUNT(distinct CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) as num_visits
+			FROM cust_snapshot_july18
+			WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
+			GROUP BY vt_individual_customer_id, store_nbr
+			) A
+		) B
+	WHERE preference=1
 )
 
 SELECT store_nbr, COUNT(vt_individual_customer_id) OVER (PARTITION BY store_nbr)/ CAST(PSC.total_assigned_customers AS FLOAT)  as percentage
@@ -27,7 +27,7 @@ preferred_store AS
 (
 	SELECT vt_individual_customer_id, store_nbr
 	   FROM
-		(SELECT vt_individual_customer_id, store_nbr,  ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY num_visits  DESC, total_sales DESC) AS visit_sale_preference--RANK() OVER (partition by vt_individual_customer_id ORDER BY num_visits  DESC) as visit_preference, ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY total_sales ) as sales_preference
+		(SELECT vt_individual_customer_id, store_nbr,  ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY num_visits  DESC, total_sales DESC) AS visit_sale_preference
 		FROM
 			(SELECT  vt_individual_customer_id, store_nbr, COUNT(distinct CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) as num_visits, SUM(retail_price) as total_sales
 			FROM cust_snapshot_july18
@@ -59,10 +59,10 @@ LOAD DATA LOCAL INPATH '/home/report_FY17.csv' OVERWRITE INTO TABLE excel_sheet_
 WITH
 open_365 AS
 (
-SELECT store_nbr, COUNT(distinct visit_date) as days_open
-FROM cust_snapshot_july18
-WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
-GROUP BY store_nbr
+	SELECT store_nbr, COUNT(distinct visit_date) as days_open
+	FROM cust_snapshot_july18
+	WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
+	GROUP BY store_nbr
 )
 
 SELECT o.store_nbr, CASE  WHEN es.store_nbr IS NULL THEN 'NEW' ELSE 'EXISTING'    AS store_status, CASE  WHEN o.days_open=365 THEN 1 ELSE 0  AS open_all_days
@@ -76,13 +76,14 @@ ON qs.store_nbr=es.store_nbr
 WITH
 open_365 AS
 (
-SELECT store_nbr, COUNT(distinct visit_date) as days_open, COUNT(distinct vt_individual_customer_id) as total_households_impacted
-FROM cust_snapshot_july18
-WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
-GROUP BY store_nbr
+	SELECT store_nbr, COUNT(distinct visit_date) as days_open, COUNT(distinct vt_individual_customer_id) as total_households_impacted
+	FROM cust_snapshot_july18
+	WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
+	GROUP BY store_nbr
 )
 
-SELECT o.store_nbr, CASE  WHEN es.store_nbr IS NULL THEN 'NEW' ELSE 'EXISTING'    AS store_status, CASE  WHEN o.days_open=365 THEN 1 ELSE 0  AS open_all_days, o.total_households_impacted
-
+SELECT	 o.store_nbr, 
+				CASE  WHEN es.store_nbr IS NULL THEN 'NEW' ELSE 'EXISTING'    AS store_status, 
+				CASE  WHEN o.days_open=365 THEN 1 ELSE 0  AS open_all_days, o.total_households_impacted
 FROM open_365 o LEFT OUTER JOIN report_FY17 es
 ON qs.store_nbr=es.store_nbr
