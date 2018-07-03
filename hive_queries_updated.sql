@@ -16,7 +16,7 @@ preferred_store AS
 SELECT p.store_nbr, COUNT(p.vt_individual_customer_id) OVER (PARTITION BY p.store_nbr)/ CAST(PSC.total_assigned_customers AS FLOAT)  as percentage
 FROM preferred_store p, (SELECT  COUNT(vt_individual_customer_id)  as total_assigned_customers FROM preferred_store ) PSC
 WHERE p.preference=1
-GROUP BY store_nbr
+
 
 -- q1. b) accounting for ties between stores for a customer, choosing the one with highest sales
 -- assuming sales as the total dollar amount of sales
@@ -37,7 +37,6 @@ WHERE visit_sale_preference=1
 )
 SELECT store_nbr, COUNT(vt_individual_customer_id) OVER (PARTITION BY store_nbr)/ CAST(PSC.total_assigned_customers AS FLOAT) as percentage
 FROM preferred_store , (SELECT  COUNT(vt_individual_customer_id)  as total_assigned_customers FROM preferred_store ) PSC
-GROUP BY store_nbr
 
 --q2
 --Assuming that the stores we are interested in are the stores from cust_snapshot_july18
