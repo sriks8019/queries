@@ -3,22 +3,20 @@
 WITH
 preferred_store AS
 (
-	SELECT vt_individual_customer_id, store_nbr
-	FROM
-		(SELECT vt_individual_customer_id, store_nbr, ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY num_visits DESC ) as preference
+	SELECT vt_individual_customer_id, store_nbr, ROW_NUMBER() OVER (partition by vt_individual_customer_id ORDER BY num_visits DESC ) as preference
 		FROM
 			(SELECT  vt_individual_customer_id, store_nbr, COUNT(distinct CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) as num_visits
 			FROM cust_snapshot_july18
 			WHERE visit_date BETWEEN  '01-02-2017' AND '31-01-2018'
 			GROUP BY vt_individual_customer_id, store_nbr
 			) A
-		) B
-	WHERE preference=1
+	
 )
 
-SELECT store_nbr, COUNT(vt_individual_customer_id) OVER (PARTITION BY store_nbr)/ CAST(PSC.total_assigned_customers AS FLOAT)  as percentage
-FROM preferred_store , (SELECT  COUNT(vt_individual_customer_id)  as total_assigned_customers FROM preferred_store ) PSC
-
+SELECT p.store_nbr, COUNT(p.vt_individual_customer_id) OVER (PARTITION BY p.store_nbr)/ CAST(PSC.total_assigned_customers AS FLOAT)  as percentage
+FROM preferred_store p, (SELECT  COUNT(vt_individual_customer_id)  as total_assigned_customers FROM preferred_store ) PSC
+WHERE p.preference=1
+GROUP BY store_nbr
 
 -- q1. b) accounting for ties between stores for a customer, choosing the one with highest sales
 -- assuming sales as the total dollar amount of sales
