@@ -40,7 +40,7 @@ open_365 AS
 	GROUP BY store_nbr
 )
 
-SELECT o.store_nbr, CASE  WHEN es.store_nbr IS NULL THEN 'NEW' ELSE 'EXISTING'    AS store_status, CASE  WHEN o.days_open=365 THEN 1 ELSE 0  AS open_all_days
+SELECT o.store_nbr, CASE  WHEN es.store_nbr IS NULL THEN 'NEW' ELSE 'EXISTING'   END  AS store_status, CASE  WHEN o.days_open=365 THEN 1 ELSE 0 END  AS open_all_days
 
 FROM open_365 o LEFT OUTER JOIN report_FY17 es
 ON qs.store_nbr=es.store_nbr
