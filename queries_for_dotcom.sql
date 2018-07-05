@@ -18,6 +18,14 @@ WHERE T. purchase_number=1
 
 --Q2. 2.	Identify Avg basket size, channel, platform split for all customers in FY18
 -- Query for dotcom customers
+SELECT ugc_id, channel, platform, AVG(basket_size) as average_basket_size
+FROM
+(SELECT ugc_id, channel, platform, grp_order_nbr,   COUNT(qty)  as basket_size -- can use SUM instead of count, if basket size is num of items * qty
+FROM gcia_dotcom.omnichannel_sol_v3
+WHERE fiscal_year_nbr=2018 -- AND visit_date BETWEEN   '01-02-2017' AND '31-01-2018'
+AND channel='DOTCOM'
+GROUP BY ugc_id, channel, platform, grp_order_nbr) T
+GROUP BY ugc_id, channel, platform
 
 --Query for dotcom and OG
 
