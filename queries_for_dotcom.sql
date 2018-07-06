@@ -55,14 +55,38 @@ WHERE DATEDIFF(CURRENT_DATE, lp_dt_dotcom) >=365
 ),
 inactive_dotcom_customer_purchases
 (SELECT oc.ugc_id, oc.grp_order_nbr, SUM(oc.qty) as basket_size
-FROM (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' AND visit_date BETWEEN   '01-02-2017' AND '31-01-2018' )oc LEFT SEMI JOIN inactive_dotcom_customers idc
+FROM (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' )oc LEFT SEMI JOIN inactive_dotcom_customers idc
  ON oc.ugc_id=idc.ugc.id
 GROUP BY oc.ugc_d, oc.grp_order_nbr)
 
-SELECT num_orders, COUNT(ugc_id) AS num_of_customers
-(SELECT ugc_id, COUNT(grp_order_number) as num_orders
+SELECT num_orders_before_churn, COUNT(ugc_id) AS num_of_customers
+(SELECT ugc_id, COUNT(grp_order_number) AS num_orders_before_churn
 FROM inactive_dotcom_customer_purchases
 GROUP BY ugc_id
 )
  GROUP BY num_orders
  
+ --considering different churns not just the latest
+WITH 
+ churn_customers AS
+ (
+ SELECT ugc_id, visit_date AS churn_date, grp_order_number
+ FROM
+	 (SELECT ugc_id, visit_date, grp_order_number
+	 LEAD(visit_date, 1 , CURRENT_DATE) OVER(PARTITION BY ugc_id ORDER BY visit_date) AS next_purchase 
+	 FROM gcia_dotcom.omnichannel_sol_v3  
+	 WHERE channel='DOTCOM' ) DT
+ WHERE DATEDIFF(next_purchase , visit_date) >=365
+ ),
+ 
+orders_till_date AS
+(SELECT ugc_id, visit_date, RANK() OVER (PARTITION BY ugc_id ORDER BY oc.visit_date, oc.grp_order_nbr ) AS num_orders
+FROM
+ (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' )oc 
+)
+SELECT otd.ugc_id, otc.visit_date, num_orders
+FROM orders_till_date otd JOIN churn_customers cc
+ ON otd.ugc_id=cc.ugc_id
+ AND otd.visit_date=cc.visit_date
+AND otd.grp_order_nbr=cc.grp_order_nbr
+
