@@ -44,8 +44,8 @@ AND visit_month=3
 )
 SELECT 	t.visit_month,
 	COUNT(t.ugc_id)   as second_purchase_count, 
- 	COUNT(t.ugc_id)  / (SELECT CAST(COUNT(mb.ugc_id) AS FLOAT)) FROM march_cohort mb)  * 100 as month_wise_second_purchase_percentage
-FROM customer_wise_transactions t LEFT SEMI JOIN march_cohort mc -- LEFT SEMI JOIN for HIVE, for SQL: IN(SELECT ugc_id FROM march_cohort)
+ 	COUNT(t.ugc_id)  / C.total * 100 as month_wise_second_purchase_percentage
+FROM  (SELECT CAST(COUNT(mb.ugc_id) AS FLOAT)) AS total FROM march_cohort mb) C, customer_wise_transactions t LEFT SEMI JOIN march_cohort mc -- LEFT SEMI JOIN for HIVE, for SQL: IN(SELECT ugc_id FROM march_cohort)
 	ON t.ugc_id=mc.ugc_id
 WHERE t.transaction_number=2
 GROUP BY visit_month;

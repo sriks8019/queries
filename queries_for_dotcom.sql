@@ -55,8 +55,9 @@ WHERE DATEDIFF(CURRENT_DATE, lp_dt_dotcom) >=365
 ),
 inactive_dotcom_customer_purchases
 (SELECT oc.ugc_id, oc.grp_order_nbr, SUM(oc.qty) as basket_size
-FROM (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' )oc LEFT SEMI JOIN inactive_dotcom_customers idc
+FROM gcia_dotcom.omnichannel_sol_v3  oc LEFT SEMI JOIN inactive_dotcom_customers idc
  ON oc.ugc_id=idc.ugc.id
+ AND oc.channel='DOTCOM'
 GROUP BY oc.ugc_d, oc.grp_order_nbr)
 
 SELECT num_orders_before_churn, COUNT(ugc_id) AS num_of_customers
@@ -80,9 +81,8 @@ WITH
  WHERE DATEDIFF(next_purchase , visit_date) >=365
  ),
 orders_till_date AS
-(     SELECT ugc_id, visit_date, DENSE_RANK() OVER (PARTITION BY ugc_id ORDER BY oc.visit_date, oc.grp_order_nbr ) AS num_orders
-		FROM
-	 (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' ) oc 
+(     SELECT ugc_id, visit_date, DENSE_RANK() OVER (PARTITION BY ugc_id ORDER BY visit_date, grp_order_nbr ) AS num_orders
+		FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM'  
 ), 
 num_dotcom_customers AS --getting datewise total number of customers
 ( 
