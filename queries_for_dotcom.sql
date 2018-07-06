@@ -70,23 +70,44 @@ GROUP BY ugc_id
 WITH 
  churn_customers AS
  (
- SELECT ugc_id, visit_date AS churn_date, grp_order_number
+ SELECT ugc_id, visit_date AS churn_date,
+ 			  grp_order_number
  FROM
-	 (SELECT ugc_id, visit_date, grp_order_number
+	 (SELECT ugc_id, visit_date,  grp_order_number
 	 LEAD(visit_date, 1 , CURRENT_DATE) OVER(PARTITION BY ugc_id ORDER BY visit_date) AS next_purchase 
 	 FROM gcia_dotcom.omnichannel_sol_v3  
 	 WHERE channel='DOTCOM' ) DT
  WHERE DATEDIFF(next_purchase , visit_date) >=365
  ),
- 
 orders_till_date AS
-(SELECT ugc_id, visit_date, RANK() OVER (PARTITION BY ugc_id ORDER BY oc.visit_date, oc.grp_order_nbr ) AS num_orders
-FROM
- (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' )oc 
+(     SELECT ugc_id, visit_date, DENSE_RANK() OVER (PARTITION BY ugc_id ORDER BY oc.visit_date, oc.grp_order_nbr ) AS num_orders
+		FROM
+	 (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' ) oc 
+), 
+num_dotcom_customers AS --getting datewise total number of customers
+( 
+	SELECT  fp_dt_dotcom, MAX(num_cust) AS number_of_customers
+	FROM
+		(SELECT fp_dt_dotcom, ROW_NUMBER() OVER ( ORDER BY  fp_dt_dotcom) AS num_cust
+		FROM gcia_dotcom.omnichannel_base_partition_dotcom
+		) T
+	GROUP BY fp_dt_dotcom
 )
-SELECT otd.ugc_id, otc.visit_date, num_orders
+SELECT num_orders as txn_number, COUNT(otd.ugc_id)  as churn_customers
 FROM orders_till_date otd JOIN churn_customers cc
  ON otd.ugc_id=cc.ugc_id
- AND otd.visit_date=cc.visit_date
+ AND otd.visit_date=cc.churn_date
 AND otd.grp_order_nbr=cc.grp_order_nbr
+GROUP BY num_orders
 
+
+
+--churn percentage
+SELECT distinct num_orders as txn_number,
+COUNT(otd.ugc_id)  OVER( PARTITION BY  num_orders )/(CAST number_of_customers AS FLOAT) AS churn_percent
+FROM orders_till_date otd JOIN churn_customers cc
+ ON otd.ugc_id=cc.ugc_id
+ AND otd.visit_date=cc.churn_date
+AND otd.grp_order_nbr=cc.grp_order_nbr
+JOIN num_dotcom_customers ndc
+ON otd.visit_date=ndc.fp_dt_dotcom
