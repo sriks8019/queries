@@ -10,7 +10,7 @@ FY18_first_dotcom_customers AS
 
 SELECT ugc_id, mkt_veh
 FROM
-(SELECT     os.ugc_id, os.visit_date, os.mkt_veh, RANK() OVER( ORDER BY os.grp_order_nbr) as purchase_number
+(SELECT     os.ugc_id, os.visit_date, os.mkt_veh, RANK() OVER( PARTITION BY oc.ugc_id  ORDER BY os.grp_order_nbr) as purchase_number
 FROM gcia_dotcom.omnichannel_sol_v3  os LEFT SEMI JOIN FY18_first_dotcom_customers fpc
 ON os.ugc_id=fpc.ugc_id
 AND os.visit_date=fpc.fp_dt_dotcom) T
