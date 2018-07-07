@@ -11,17 +11,19 @@ FY18_first_dotcom_customers AS
 SELECT ugc_id, mkt_veh
 FROM
 (SELECT     os.ugc_id, os.visit_date, os.mkt_veh, RANK() OVER( PARTITION BY oc.ugc_id  ORDER BY os.grp_order_nbr) as purchase_number
-FROM (SELECT * FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM' AND visit_date BETWEEN   '01-02-2017' AND '31-01-2018' )os
+FROM gcia_dotcom.omnichannel_sol_v3  os
 LEFT SEMI JOIN FY18_first_dotcom_customers fpc
 ON os.ugc_id=fpc.ugc_id
-AND os.visit_date=fpc.fp_dt_dotcom) T
+AND os.visit_date=fpc.fp_dt_dotcom
+AND channel='DOTCOM' 
+WHERE visit_date BETWEEN   '01-02-2017' AND '31-01-2018' ) T
 WHERE T. purchase_number=1
 
 --Q2. 2.	Identify Avg basket size, channel, platform split for all customers in FY18
 -- Query for dotcom customers
 SELECT ugc_id, service_id,, platform, AVG(basket_size) as average_basket_size
 FROM
-(SELECT ugc_id, service_id, platform, grp_order_nbr,   SUM(qty)  as basket_size -- can use SUM instead of count, if basket size is num of items * qty
+(SELECT ugc_id, service_id, platform, grp_order_nbr,   SUM(qty)  as basket_size 
 FROM gcia_dotcom.omnichannel_sol_v3
 WHERE fiscal_year_nbr=2018 -- AND visit_date BETWEEN   '01-02-2017' AND '31-01-2018'
 AND channel='DOTCOM'
@@ -77,12 +79,15 @@ WITH
 	 (SELECT ugc_id, visit_date,  grp_order_number
 	 LEAD(visit_date, 1 , CURRENT_DATE) OVER(PARTITION BY ugc_id ORDER BY visit_date) AS next_purchase 
 	 FROM gcia_dotcom.omnichannel_sol_v3  
-	 WHERE channel='DOTCOM' ) DT
+	 WHERE channel='DOTCOM'
+	 GROUP BY ugc_id, visit_date,  grp_order_number ) DT
  WHERE DATEDIFF(next_purchase , visit_date) >=365
  ),
 orders_till_date AS
-(     SELECT ugc_id, visit_date, DENSE_RANK() OVER (PARTITION BY ugc_id ORDER BY visit_date, grp_order_nbr ) AS num_orders
-		FROM gcia_dotcom.omnichannel_sol_v3  WHERE channel='DOTCOM'  
+(     SELECT ugc_id, visit_date,  grp_order_number, DENSE_RANK() OVER (PARTITION BY ugc_id ORDER BY visit_date, grp_order_nbr ) AS num_orders
+		FROM gcia_dotcom.omnichannel_sol_v3  
+		WHERE channel='DOTCOM'  
+		GROUP BY ugc_id, visit_date,  grp_order_number
 ), 
 num_dotcom_customers AS --getting datewise total number of customers
 ( 
@@ -101,13 +106,13 @@ AND otd.grp_order_nbr=cc.grp_order_nbr
 GROUP BY num_orders
 
 
-
 --churn percentage
-SELECT distinct num_orders as txn_number,
-COUNT(otd.ugc_id)  OVER( PARTITION BY  num_orders )/(CAST number_of_customers AS FLOAT) AS churn_percent
+SELECT num_orders AS txn_number,
+DENSE_RANK() OVER( PARTITION BY  num_orders ORDER BY otd.visit_date, otd.ugc_id)/(CAST number_of_customers AS FLOAT) AS churn_percent
 FROM orders_till_date otd JOIN churn_customers cc
  ON otd.ugc_id=cc.ugc_id
  AND otd.visit_date=cc.churn_date
-AND otd.grp_order_nbr=cc.grp_order_nbr
+AND otd.grp_order_nbr=cc.grp_order_nbr 
 JOIN num_dotcom_customers ndc
 ON otd.visit_date=ndc.fp_dt_dotcom
+
