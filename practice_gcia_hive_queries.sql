@@ -164,6 +164,17 @@ GROUP BY subcat) A
 WHERE percent_of_top_subcat_total>=0.1
 
 --Q12
+
+SELECT  channel, visit_date, SUM(total_auth_amount) AS total_amount,    COUNT( distinct COALESCE(group_order_nbr,visit_nbr )) as num_orders ,
+ MAX(  COUNT( distinct COALESCE(group_order_nbr,visit_nbr )))OVER(PARTITION BY channel)  AS max_orders_by_channel
+FROM gcia_dotcom.omnichannel_sol_v3
+WHERE channel in ('DOTCOM', 'STORE')
+AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=30
+GROUP BY channel, visit_date
+
+--longer alternative
+-- this has some repetitive output
+-- can be removed by rolling up at the inner level
 SELECT * 
 FROM 
 ((SELECT 'DOTCOM' as channel, visit_date,group_order_number, SUM(SUM(total_auth_amount)) OVER (PARTITION BY visit_date ) AS total_amount,  COUNT(group_order_number) OVER(PARTITION BY visit_date) AS num_orders
@@ -172,7 +183,7 @@ WHERE channel in ('DOTCOM')
 AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=30
 GROUP BY visit_date, group_order_number
 )  UNION ALL
-(SELECT 'STORE' AS channel, visit_date, channel,visit_number, SUM(total_auth_amount) OVER (PARTITION BY visit_date ) AS total_amount,  COUNT(visit_number) OVER(PARTITION BY visit_date) AS num_orders
+(SELECT 'STORE' AS channel, visit_date, channel,visit_number, SUM(SUM(total_auth_amount))OVER (PARTITION BY visit_date ) AS total_amount,  COUNT(visit_number) OVER(PARTITION BY visit_date) AS num_orders
 FROM gcia_dotcom.omnichannel_sol_v3
 WHERE channel in ('STORE')
 AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=30
@@ -197,15 +208,7 @@ GROUP BY  visit_date,  visit_number) B
 ON A.visit_date=B.visit_date
 ORDER BY visit_date;
 
---alternative
-SELECT
-FROM 
-(SELECT  channel, visit_date, SUM(total_auth_amount) AS total_amount,    COUNT( distinct COALESCE(group_order_nbr,visit_nbr )) as num_orders , MAX(  COUNT( distinct COALESCE(group_order_nbr,visit_nbr )))OVER(PARTITION BY channel) 
-FROM gcia_dotcom.omnichannel_sol_v3
-WHERE channel in ('DOTCOM', 'STORE')
-AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=30
-GROUP BY channel, visit_date
-) T
+
 --Q13
 
 WITH avg_price_rank as
