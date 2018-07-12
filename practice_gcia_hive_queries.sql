@@ -23,24 +23,28 @@ SELECT ugc_id, visit_date, group_order_nbr,
 			  CASE ROW_NUMBER() OVER (PARTITION BY ugc_id ORDER BY visit_date,group_order_nbr) WHEN 1 THEN 1 ELSE 0 END AS mdse_first_flag 
 FROM gcia_dotcom.omnichannel_sol_v3 osv
 WHERE channel IN ('DOTCOM')
-AND visit_date BETWEEN '01-04-2017' AND '31-04-2018'
+AND visit_date BETWEEN '01-04-2017' AND '31-04-2018'-- yyyy-mm- dd
 AND mdse_l0=50000
 GROUP BY ugc_id, visit_date, group_order_nbr;
 
---2
+--Q2 2. Calculate the distribution of sales (total_auth_amt) and quantity (qty) across each marketing vehicle in this year and last year
+
 SELECT mkt_veh,YEAR(visit_date), SUM(total_aut_amt), SUM(qty)
 FROM gcia_dotcom.omnichannel_sol_v3
 WHERE CHANNEL IN ('DOTCOM', 'OG')
 AND visit_date BETWEEN '01-04-2016' AND '31-04-2018' -- fiscal_year_nbr IN (2017, 2018)
 GROUP BY mkt_veh, YEAR(visit_date)
 
---Q3.
+--Q3. 3. calculate the number of new and Repet customers for Rollong 12 months (as of march 31st) in OG considering new customers as making their first transaction in OG
+-- and repeat as people having placed an order between rolling 13 - 24 months. (people having an order before rolling 24 months to be considered as new)
+
 WITH first_time_customers AS
 ( SELECT ugc_id, fp_dt_dotcom 
 	FROM gcia_dotcom.omnichannel_base_partition_og
 	WHERE DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), fp_dt_og ) BETWEEN 365 AND 365*2
 )
-SELECT ugc_id, group_order_nbr, CASE COUNT() OVER (PARTITION BY ugc_id) as num_of_transactions WHEN 1 THEN 'NEW' ELSE 'REPEAT' END as customer_type
+SELECT ugc_id, group_order_nbr, CASE COUNT(grp_order) OVER (PARTITION BY ugc_id) WHEN 1 THEN 'NEW' ELSE 'REPEAT' END as customer_type
+FROM sol_v3
 LEFT SEMI JOIN first_time_customers
 ON osv.ugc_id=fc.ugc_id
 AND osv.CHANNEL='OG' 
@@ -51,14 +55,20 @@ GROUP BY ugc_id, group_order_nbr
 SET hive.exec.dynamic.partition = true;
 SET hive.exec.dynamic.partition.mode = nonstrict;
 SET hive.exec.max.dynamic.partitions.pernode = 400;
+
 CREATE TABLE transactions_partitioned_weeknbr_mdse
 (
 /* columns except */
 )
-PARTITIONED BY (wm_week_nbr, MDSE_l0 INT)
+PARTITIONED BY (wm_week_nbr INT, MDSE_l0 INT);
+
+
+INSERT INTO TABLE transactions_partitioned_weeknbr_mdse
+PARTITION(wm_week_nbr, MDSE_l0 )
 SELECT 
 , wm_week_nbr, mdse_l0
-FROM gcia_dotcom.omnichannel_sol_v3
+FROM gcia_dotcom.omnichannel_sol_v3;
+
 
 --5 
 SELECT * 
@@ -93,7 +103,8 @@ FROM gcia_dotcom.omnichannel_sol_v3
 WHERE CHANNEL IN ('DOTCOM')
 AND mdse_l0=50000
 AND DATEDIFF(CURRENT_DATE,visit_date )<=27) T
---Q7
+--Q7 For all Dotcom customers, find their R12 month spend and their R13-24 month spend 
+
 SELECT ugc_id, year_num, month_num, SUM(SUM(total_auth_amount) ) OVER (PARTITION BY ugc_id, year_num ORDER BY year_num, month_num ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW )
 FROM 
 (SELECT  ugc_id,  MONTH(visit_date) as month_num, total_auth_amount, CASE WHEN DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date ) <=365 THEN 1 ELSE 2 END as year_num
@@ -101,7 +112,7 @@ FROM gcia_dotcom.omnichannel_sol_v3
 WHERE CHANNEL='DOTCOM'
 AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date ) <= 365*2
 ) A
-GROUP BY year_num, month_num
+GROUP BY ugc_id,  year_num, month_num
 
 --Q8
 WITH last_180_days
@@ -112,7 +123,7 @@ FROM gcia_dotcom.omnichannel_sol_v3
 WHERE DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=180
 )
 
-SELECT channel, cust_id,CASE WHEN NTILE(10) OVER(PARTITION BY channel ORDER BY  SUM(total_aut_amount))
+SELECT channel, cust_id,CASE WHEN NTILE(10) OVER(PARTITION BY channel ORDER BY  SUM(total_aut_amount)) = 10 THEN 1 ELSE 0 END AS top_decile_customers
 FROM last_180_days
 GROUP BY channel, cust_id
 --Q9
@@ -120,11 +131,11 @@ WITH
 preferred_store AS
 (			
 			SELECT  individual_id, store_nbr
-			(SELECT  individual_id, store_nbr, visit_date, visit_nbr, 
-			 ROW_NUMBER() OVER  ( partition by individual_id ORDER BY COUNT(CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) DESC) AS visit_sale_preference
+			(SELECT  individual_id, store_nbr
+			 ROW_NUMBER() OVER  ( partition by individual_id ORDER BY COUNT(distinct CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) DESC) AS visit_sale_preference
 			FROM gcia_dotcom.omnichannel_sol_v3
 			WHERE visit_date BETWEEN  '01-02-2017' AND TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()))
-			GROUP BY individual_id, store_nbr, visit_date, visit_nbr
+			GROUP BY individual_id, store_nbr
 			) A
 			WHERE visit_sale_preference=1
 )
@@ -189,7 +200,15 @@ GROUP BY  visit_date,  visit_number) B
 ON A.visit_date=B.visit_date
 ORDER BY visit_date;
 
-
+--alternative
+SELECT
+FROM 
+(SELECT  channel, visit_date, SUM(total_auth_amount) AS total_amount,    COUNT( distinct COALESCE(group_order_nbr,visit_nbr )) as num_orders , MAX(  COUNT( distinct COALESCE(group_order_nbr,visit_nbr )))OVER(PARTITION BY channel) 
+FROM gcia_dotcom.omnichannel_sol_v3
+WHERE channel in ('DOTCOM', 'STORE')
+AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=30
+GROUP BY channel, visit_date
+) T
 --Q13
 
 WITH avg_price_rank as
@@ -202,5 +221,15 @@ GROUP BY dept)
 SELECT dept
 FROM avg_price
 WHERE avg_price_rank =1;
+
+/*
+8. Bucket dotcom, og & store customers individually of last 180 days for every decile based on total_auth_amt 
+9. For store customers, tag all customers in the last one year to the store that they most frequently visit
+10. find the spent of all customers who were active for the last three years, 
+for all three years as well as overall who are individually active for all three years and tag the top decile customers based on spent  overall value
+11. Find the top sold subcat in the last 90 days, and find out the subcategory which was also purchased 1 out of 10 times atleast with the top sold subcategory within a store
+with: within the same basket
+12. compare the Dotcom spent trend with store spent trend for the last month daywise and find out the days which had maximum orders
+13. Find out the department having more inexpensive products
 
 
