@@ -58,7 +58,7 @@ SET hive.exec.max.dynamic.partitions.pernode = 400;
 
 CREATE TABLE transactions_partitioned_weeknbr_mdse
 (
-/* columns except */
+/* columns from original  except wm_week_nbr, MDSE_l0 */
 )
 PARTITIONED BY (wm_week_nbr INT, MDSE_l0 INT);
 
@@ -67,7 +67,8 @@ INSERT INTO TABLE transactions_partitioned_weeknbr_mdse
 PARTITION(wm_week_nbr, MDSE_l0 )
 SELECT 
 , wm_week_nbr, mdse_l0
-FROM gcia_dotcom.omnichannel_sol_v3;
+FROM gcia_dotcom.omnichannel_sol_v3
+WHERE CAST(MONTHS_BETWEEN(date1, date2) AS INT)< 10 ;
 
 
 --5 
@@ -115,22 +116,18 @@ AND DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date ) <= 365*2
 GROUP BY ugc_id,  year_num, month_num
 
 --Q8
-WITH last_180_days
-AS
-(
-SELECT COALESCE(ugc_id,individual_id ) as cust_id, channel, total_auth_amount
+
+SELECT channel, COALESCE(ugc_id,individual_id ) as cust_id, SUM(total_auth_amount), CASE WHEN NTILE(10) OVER(PARTITION BY channel ORDER BY  SUM(total_aut_amount)) = 10 THEN 1 ELSE 0 END AS top_decile_customers
 FROM gcia_dotcom.omnichannel_sol_v3
 WHERE DATEDIFF(TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()), visit_date))<=180
-)
+GROUP BY channel, COALESCE(ugc_id,individual_id ) 
 
-SELECT channel, cust_id,CASE WHEN NTILE(10) OVER(PARTITION BY channel ORDER BY  SUM(total_aut_amount)) = 10 THEN 1 ELSE 0 END AS top_decile_customers
-FROM last_180_days
-GROUP BY channel, cust_id
 --Q9
 WITH
 preferred_store AS
 (			
 			SELECT  individual_id, store_nbr
+			FROM
 			(SELECT  individual_id, store_nbr
 			 ROW_NUMBER() OVER  ( partition by individual_id ORDER BY COUNT(distinct CAST(visit_date as VARCHAR) +' '+CAST(visit_nbr AS VARCHAR)) DESC) AS visit_sale_preference
 			FROM gcia_dotcom.omnichannel_sol_v3
